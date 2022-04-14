@@ -1,16 +1,10 @@
 import numpy as np
 import pandas as pd
-from correlation_2d import cross_correlate_2d
+from correlation import cross_correlate_2d
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib import patches
-
-def max_pos(array: np.ndarray, step_x, step_y):
-    max_index = np.argmax(array)
-    return (
-        step_y * (max_index % array.shape[1]),
-        step_x * (max_index // array.shape[1]),
-    )
+from utils import max_pos
 
 def main():
     # Read images from file as grayscale
@@ -28,9 +22,6 @@ def main():
 
     region_cor_max = max_pos(region_cor, step, step)
     region_edit_cor_max = max_pos(region_edit_cor, step, step)
-
-    print(region_cor_max)
-    print(region_edit_cor_max)
 
     rect_kwargs = {
         'linewidth': 2,
@@ -54,6 +45,7 @@ def main():
     plt.imshow(region_edit)
     figure.add_subplot(2, 2, 4)
     plt.imshow(region_edit_cor)
+
     plt.show()
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from correlation_1d import cross_correlate_1d as custom_correlate
+from correlation import cross_correlate_1d
 from matplotlib import pyplot as plt
 from datetime import datetime
 
@@ -18,7 +18,7 @@ def main():
     _, axis = plt.subplots(1)
 
     start = datetime.now()
-    # correlation = custom_correlate(signal_1, signal_2, normalised=True)
+    # correlation = cross_correlate_1d(signal_1, signal_2, normalised=True)
     correlation = np.correlate(signal_2, signal_1, mode='full')
     print(f'Took {datetime.now() - start} seconds')
     axis.plot(correlation)

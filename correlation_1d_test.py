@@ -1,5 +1,5 @@
 import numpy as np
-from correlation_1d import cross_correlate_1d as custom_correlate
+from correlation import cross_correlate_1d
 from matplotlib import pyplot as plt
 
 STEP_SIZE = np.pi / 10
@@ -12,9 +12,7 @@ def main():
 
     figure, axis = plt.subplots(3)
 
-    custom_correlation = custom_correlate(f_vec, g_vec, normalised=True)
-    axis[0].plot(correlation_x_vec, custom_correlation)
-    axis[0].set_title('custom correlation')
+    custom_correlation = cross_correlate_1d(f_vec, g_vec, normalised=True)
 
     numpy_correlation = np.correlate(f_vec, g_vec, mode='full')
     axis[1].plot(correlation_x_vec, numpy_correlation)
