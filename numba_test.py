@@ -1,3 +1,6 @@
+'''Script for testing the effect of the Numba just-in-time compiler on the
+vectorised custom cross-correlation functions.
+'''
 import numpy as np
 from correlation import cross_correlate_1d
 from correlation_numba import cross_correlate_1d_numba

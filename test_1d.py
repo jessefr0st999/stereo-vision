@@ -1,3 +1,6 @@
+'''Script for cross-correlating two 1D test signals then plotting
+these plus the output.
+'''
 import numpy as np
 from correlation import cross_correlate_1d, cross_correlate_1d_raw
 from correlation_spectral import cross_correlate_1d_spectral

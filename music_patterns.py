@@ -1,3 +1,6 @@
+'''Script for finding occurrences of certain audio snippets in a
+longer audio file using spectral cross-correlation.
+'''
 import numpy as np
 from correlation_spectral import cross_correlate_1d_spectral
 from matplotlib import pyplot as plt

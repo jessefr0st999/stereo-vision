@@ -1,3 +1,6 @@
+'''Script for cross-correlating two given signals, plotting these and the
+output as well as performing some associated calculations.
+'''
 import numpy as np
 import pandas as pd
 from correlation import cross_correlate_1d

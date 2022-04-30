@@ -1,9 +1,9 @@
 import numpy as np
-from scipy.fft import fft, ifft, fft2, ifft2, ifftshift
-from matplotlib import pyplot as plt
+from scipy.fft import fft, ifft, fft2, ifft2
 
 def cross_correlate_1d_spectral(template: np.ndarray, signal: np.ndarray):
-    '''
+    '''Computes the normalised cross-correlation between a 1D region and signal
+    using (discrete) Fourier transforms and the convolution theorem.
     '''
     # Zero-pad to get a waveform with same phase as input
     padded_signal = np.array([*np.zeros(template.size - 1), *signal])
@@ -22,7 +22,8 @@ def cross_correlate_1d_spectral(template: np.ndarray, signal: np.ndarray):
     return correlated
 
 def cross_correlate_2d_spectral(template: np.ndarray, region: np.ndarray):
-    '''
+    '''Computes the normalised cross-correlation between a 2D region and template
+    using (discrete) Fourier transforms and the convolution theorem.
     '''
     if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
         raise Exception('Dimensions of template must not exceed those of region.')
@@ -37,5 +38,5 @@ def cross_correlate_2d_spectral(template: np.ndarray, region: np.ndarray):
     ft_template = fft2(template, s=shape)
     ft_region = fft2(region, s=shape)
 
-    x_corr = np.real(ifft2(np.conj(ft_template) * ft_region))
-    return x_corr
+    correlated = np.real(ifft2(np.conj(ft_template) * ft_region))
+    return correlated

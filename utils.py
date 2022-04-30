@@ -15,7 +15,9 @@ def greyscale_with_nan(path):
     return greyscale_image
 
 def max_pos(array: np.ndarray, step_x=1, step_y=1):
-    '''
+    '''Returns the position at which the maximum value in a 2D Numpy array
+    is found. As per numpy.nanargmax, returns the position of first occurrence
+    if several maxima are present.
     '''
     max_index = np.nanargmax(array)
     return (
@@ -24,7 +26,8 @@ def max_pos(array: np.ndarray, step_x=1, step_y=1):
     )
 
 def downsample(image, downsample_factor=1):
-    '''
+    '''Wrapper for downsampling an image by a specified factor using
+    skimage.transform.
     '''
     return resize(image, (
         math.floor(image.shape[0] / downsample_factor),

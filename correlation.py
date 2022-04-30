@@ -2,7 +2,8 @@ import numpy as np
 import math
 
 def cross_correlate_1d_raw(vec_1, vec_2, normalised=False):
-    '''Computes the normalised cross-correlation using raw Python.
+    '''Computes the cross-correlation (optionally normalised) of two vectors
+    of equal length using raw Python.
     '''
     n = len(vec_1)
     if n != len(vec_2):
@@ -41,7 +42,9 @@ def cross_correlate_1d_raw(vec_1, vec_2, normalised=False):
     return correlated
 
 def cross_correlate_1d(vec_1: np.ndarray, vec_2: np.ndarray, normalised=False):
-    '''Constructs
+    '''Computes the cross-correlation (optionally normalised) of two vectors
+    of equal length. The vectors are input as Numpy arrays, and vectorised
+    Numpy operations used for calculations.
     '''
     n = len(vec_1)
     if n != len(vec_2):
@@ -72,7 +75,8 @@ def cross_correlate_1d(vec_1: np.ndarray, vec_2: np.ndarray, normalised=False):
     return correlated
 
 def cross_correlate_2d(template: np.ndarray, region: np.ndarray, step_x=1, step_y=1):
-    '''Constructs
+    '''Computes the cross-correlation (optionally normalised) between a 2D region
+    and template. Numpy is used for representation of inputs and required calculations.
     '''
     if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
         raise Exception('Dimensions of template must not exceed those of region.')

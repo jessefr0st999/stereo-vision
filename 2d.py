@@ -1,3 +1,6 @@
+'''Script for cross-correlating a 2D region and template then plotting
+these plus the output.
+'''
 import numpy as np
 from correlation import cross_correlate_2d
 from correlation_spectral import cross_correlate_2d_spectral
