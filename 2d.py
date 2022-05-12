@@ -6,13 +6,13 @@ from correlation import cross_correlate_2d
 from correlation_spectral import cross_correlate_2d_spectral
 from PIL import Image
 from matplotlib import pyplot as plt
-from matplotlib import patches
+from matplotlib.patches import Rectangle
 from utils import greyscale_with_nan, max_pos
 from datetime import datetime
-import argparse
+from argparse import ArgumentParser
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument('--spectral', action='store_true', default=False)
     parser.add_argument('--template', default='rm_template.png')
     parser.add_argument('--region', default='rm_region.png')
@@ -47,7 +47,7 @@ def main():
         'edgecolor': 'r',
         'facecolor': 'none',
     }
-    region_cor_rect = patches.Rectangle(step * region_cor_max,
+    region_cor_rect = Rectangle(step * region_cor_max,
         *template.T.shape, **rect_kwargs)
 
     figure = plt.figure(figsize=(3, 1))

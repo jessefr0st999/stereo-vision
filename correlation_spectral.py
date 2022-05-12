@@ -25,14 +25,16 @@ def cross_correlate_2d_spectral(template: np.ndarray, region: np.ndarray):
     '''Computes the normalised cross-correlation between a 2D region and template
     using (discrete) Fourier transforms and the convolution theorem.
     '''
-    if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
-        raise Exception('Dimensions of template must not exceed those of region.')
+    # XXX: Not necessary?
+    # if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
+    #     raise Exception('Dimensions of template must not exceed those of region.')
 
     # Normalise the template and signal
     template = template - np.mean(template)
     region = region - np.mean(region)
-    template = template / (np.std(template) * template.size)
-    region = region / np.std(region)
+    # TODO: handle zero standard deviation (constant template or region)
+    # template = template / (np.std(template) * template.size)
+    # region = region / np.std(region)
 
     shape = region.shape
     ft_template = fft2(template, s=shape)
