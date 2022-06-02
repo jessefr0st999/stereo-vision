@@ -1,0 +1,15 @@
+[
+  {
+    "window_width": 18,
+    "window_height": 18,
+    "scheme": "1x3",
+    "correlation_threshold": 0,
+    "overlap": 0
+  },
+  {
+    "window_width": 6,
+    "window_height": 6,
+    "scheme": "3x3",
+    "correlation_threshold": 0
+  }
+]
