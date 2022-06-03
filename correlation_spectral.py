@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.fft import fft, ifft, fft2, ifft2
 
+MIN_ST_DEV = 1e-4
+MIN_MEAN_DIFF = 1e-8
+
 def cross_correlate_1d_spectral(template: np.ndarray, signal: np.ndarray):
     '''Computes the normalised cross-correlation between a 1D region and signal
     using (discrete) Fourier transforms and the convolution theorem.
@@ -21,24 +24,35 @@ def cross_correlate_1d_spectral(template: np.ndarray, signal: np.ndarray):
     correlated = np.real(ifft(np.conj(ft_template) * ft_signal))
     return correlated
 
-def cross_correlate_2d_spectral(template: np.ndarray, region: np.ndarray):
-    '''Computes the normalised cross-correlation between a 2D region and template
+def cross_correlate_2d_spectral(orig_template: np.ndarray, orig_region: np.ndarray, _id=None):
+    '''Computes the normalised cross-correlation between a 2D target region and template
     using (discrete) Fourier transforms and the convolution theorem.
     '''
+
     # XXX: Not necessary?
     # if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
     #     raise Exception('Dimensions of template must not exceed those of region.')
 
-    # Normalise the template and signal
-    template = template - np.mean(template)
-    region = region - np.mean(region)
-    # TODO: handle zero standard deviation (constant template or region)
-    # template = template / (np.std(template) * template.size)
-    # region = region / np.std(region)
-
+    # Normalise the template and target region
+    template = orig_template - np.mean(orig_template)
+    region = orig_region - np.mean(orig_region)
     shape = region.shape
+
+    # Handle cases where the standard deviations are low
+    if np.std(template) < MIN_ST_DEV or np.std(region) < MIN_ST_DEV:
+        if np.abs(np.mean(orig_template) - np.mean(orig_region)) < MIN_MEAN_DIFF:
+            return np.ones(shape)
+        else:
+            return np.zeros(shape)
+    else:
+        region = region / np.std(region)
+        template = template / (np.std(template) * template.size)
+
     ft_template = fft2(template, s=shape)
     ft_region = fft2(region, s=shape)
 
     correlated = np.real(ifft2(np.conj(ft_template) * ft_region))
+    # if (np.std(template) < MIN_ST_DEV or np.std(region) < MIN_ST_DEV) and \
+    #         np.max(correlated) != 0:
+    #     correlated = correlated / np.max(correlated)
     return correlated
