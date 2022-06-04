@@ -2,7 +2,7 @@ import numpy as np
 from scipy.fft import fft, ifft, fft2, ifft2
 
 MIN_ST_DEV = 1e-4
-MIN_MEAN_DIFF = 1e-8
+MIN_MEAN_DIFF = 1e-9
 
 def cross_correlate_1d_spectral(template: np.ndarray, signal: np.ndarray):
     '''Computes the normalised cross-correlation between a 1D region and signal
@@ -39,7 +39,7 @@ def cross_correlate_2d_spectral(orig_template: np.ndarray, orig_region: np.ndarr
     shape = region.shape
 
     # Handle cases where the standard deviations are low
-    if np.std(template) < MIN_ST_DEV or np.std(region) < MIN_ST_DEV:
+    if np.std(orig_template) < MIN_ST_DEV or np.std(orig_template) < MIN_ST_DEV:
         if np.abs(np.mean(orig_template) - np.mean(orig_region)) < MIN_MEAN_DIFF:
             return np.ones(shape)
         else:
