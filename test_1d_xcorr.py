@@ -7,8 +7,8 @@ from correlation_spectral import cross_correlate_1d_spectral
 from matplotlib import pyplot as plt
 from datetime import datetime
 
-# STEP_SIZE = np.pi / 5000
-STEP_SIZE = np.pi / 2000
+STEP_SIZE = np.pi / 5000
+# STEP_SIZE = np.pi / 2000
 
 def main():
     start = 0

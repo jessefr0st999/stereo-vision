@@ -1,12 +1,12 @@
 [
   [
     {
-      "window_width": 24,
-      "window_height": 24,
+      "window_width": 50,
+      "window_height": 50,
       "scheme": [5, 1],
       "scheme_shift_size": [0, 0],
-      "correlation_threshold": 0,
-      "overlap": 0
+      "window_overlap": 0,
+      "correlation_threshold": 0.5
     },
     {
       "factor": 2,

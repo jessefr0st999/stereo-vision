@@ -23,18 +23,17 @@ def main():
     region_image = Image.open(f'images/{args.region}').convert('L')
     region = np.asarray(region_image)
 
+    start = datetime.now()
     if args.spectral:
         template_image = Image.open(f'images/{args.template}').convert('L')
         template = np.asarray(template_image)
         step = 1
-        start = datetime.now()
         region_cor = cross_correlate_2d_spectral(template, region)
     else:
         # Replace transparent values with NaNs for non-spectral
         template_image = greyscale_with_nan(f'images/{args.template}')
         template = np.asarray(template_image)
         step = args.step
-        start = datetime.now()
         region_cor = cross_correlate_2d(template, region, step_x=step, step_y=step)
     print(f'Time elapsed : {datetime.now() - start}')
 

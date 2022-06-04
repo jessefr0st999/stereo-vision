@@ -1,0 +1,12 @@
+[
+  [
+    {
+      "window_width": 25,
+      "window_height": 25,
+      "scheme": [11, 11],
+      "scheme_shift_size": [10, 10],
+      "window_overlap": 0.5,
+      "correlation_threshold": 0.95
+    }
+  ]
+]

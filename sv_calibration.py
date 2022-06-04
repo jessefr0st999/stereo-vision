@@ -6,108 +6,13 @@ from correlation_spectral import cross_correlate_2d_spectral
 from PIL import Image
 from matplotlib import pyplot as plt
 from scipy import ndimage
-from sklearn.linear_model import LinearRegression
-from argparse import ArgumentParser
 
-# TODO: peak detector in external helper function
-# TODO: split test data generation into different function and file
-
-# Dots are arranged in a 17 by 21 grid
-grid_height = 17
-grid_length = 21
-grid_spacing = 50 # millimetres
-
-image_z_values = [
-    1900,
-    1920,
-    1940,
-    1960,
-    1980,
-    2000,
-    -1,
-]
-train_z = set([
-    1900,
-    # 1920,
-    # 1940,
-    # 1960,
-    # 1980,
-    # 2000,
-])
-test_z = set([
-    # 1900,
-    # 1920,
-    # 1940,
-    # 1960,
-    1980,
-    # 2000,
-    # -1,
-])
-image_z_average = 1950
 image_dir = 'images-p2-cal'
 data_dir = 'calibration-data'
 
-def main():
-    parser = ArgumentParser()
-    parser.add_argument('--model_file', default=None)
-    parser.add_argument('--data_file', default='data.json')
-    args = parser.parse_args()
+PLOT_OUTPUT = 1
 
-    peaks_x_out = np.array([])
-    peaks_y_out = np.array([])
-    peaks_z_out = np.array([])
-    peaks_xyxy = []
-    peaks_polynomials = []
-    peaks_xyxy_test = []
-    for i, z in enumerate(image_z_values):
-        if z not in train_z and z not in test_z:
-            continue
-        _xyxy, _polynomials, _x_out, _y_out, _z_out = build_features(z, i == 0)
-        if z in train_z:
-            peaks_xyxy.extend(_xyxy)
-            peaks_polynomials.extend(_polynomials)
-            peaks_x_out = np.append(peaks_x_out, _x_out)
-            peaks_y_out = np.append(peaks_y_out, _y_out)
-            peaks_z_out = np.append(peaks_z_out, _z_out)
-        if z in test_z:
-            peaks_xyxy_test.extend(_xyxy)
-
-    # Save the raw data
-    if args.data_file is None:
-        print(f'No data file specified; skipping save to file.')
-    else:
-        with open(f'{data_dir}/{args.data_file}', 'w') as f:
-            output_data = {
-                'train_points': peaks_xyxy,
-                'test_points': peaks_xyxy_test,
-                'x_values': list(peaks_x_out),
-                'y_values': list(peaks_y_out),
-                'z_values': list(peaks_z_out),
-            }
-            json.dump(output_data, f, indent=2)
-            print(f'Data saved to file {args.data_file}')
-
-    # Least squares model for parameters
-    peaks_polynomials = np.array(peaks_polynomials)
-    x_reg = LinearRegression(fit_intercept=False).fit(peaks_polynomials, peaks_x_out)
-    y_reg = LinearRegression(fit_intercept=False).fit(peaks_polynomials, peaks_y_out)
-    z_reg = LinearRegression(fit_intercept=False).fit(peaks_polynomials, peaks_z_out)
-    # Add constant terms back on to model
-    model = {
-        'x': [0, *list(x_reg.coef_)],
-        'y': [grid_spacing * (grid_height - 1) / 2 , *list(y_reg.coef_)],
-        'z': [image_z_average, *list(z_reg.coef_)],
-    }
-
-    # Save the model
-    if args.model_file is None:
-        print(f'No model file specified; skipping save to file.')
-    else:
-        with open(f'{data_dir}/{args.model_file}', 'w') as f:
-            json.dump(model, f, indent=2)
-            print(f'Model saved to file {args.model_file}')
-
-def build_features(z, plot=False):
+def build_features(z, z_average, grid_height, grid_length, grid_spacing):
     '''
     '''
     peaks_x_out = np.array([])
@@ -145,6 +50,7 @@ def build_features(z, plot=False):
             right_x_peaks[grid_length * i : grid_length * (i + 1)])
         right_y_peaks[grid_length * i : grid_length * (i + 1)] = np.flip(
             right_y_peaks[grid_length * i : grid_length * (i + 1)])
+
     # Build the matrix of design variables
     # Add squares and combination terms for linear regression
     for lin_terms in zip(left_x_peaks, left_y_peaks, right_x_peaks, right_y_peaks):
@@ -172,23 +78,22 @@ def build_features(z, plot=False):
             y = grid_spacing * ((grid_height - 1) / 2 - i)
             peaks_x_out = np.append(peaks_x_out, x)
             peaks_y_out = np.append(peaks_y_out, y)
-            peaks_z_out = np.append(peaks_z_out, z - image_z_average)
+            peaks_z_out = np.append(peaks_z_out, z - z_average)
 
-    if plot:
+    if PLOT_OUTPUT:
         figure = plt.figure(figsize=(1, 2))
         figure.add_subplot(1, 2, 1)
         plt.imshow(left_image)
         plt.autoscale(False)
+        # plt.plot(left_x_peaks, left_y_peaks, 'ro')
         figure.add_subplot(1, 2, 2)
-        plt.imshow(left_image)
+        plt.imshow(right_image)
         plt.autoscale(False)
-        plt.plot(left_x_peaks, left_y_peaks, 'ro')
-        # plt.imshow(right_image)
-        # plt.autoscale(False)
         # plt.plot(right_x_peaks, right_y_peaks, 'ro')
         plt.show()
 
-    return peaks_xyxy, peak_polynomials, peaks_x_out, peaks_y_out, peaks_z_out
+    return (np.array(peaks_xyxy), np.array(peak_polynomials), peaks_x_out,
+        peaks_y_out, peaks_z_out)
 
 def find_peaks(region, neighborhood_size, threshold):
     '''First, construct a Gaussian for detecting the exact positions of dots in the image.
@@ -250,6 +155,3 @@ def model_func_generator(model_params):
 def gaussian(x, y):
     exponent = -(np.power(x, 2) + np.power(y, 2))
     return np.exp(exponent)
-
-if __name__ == '__main__':
-    main()

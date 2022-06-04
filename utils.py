@@ -25,11 +25,11 @@ def max_pos(array: np.ndarray, step_x=1, step_y=1):
         step_x * (max_index // array.shape[1]),
     )
 
-def downsample(image, downsample_factor=1):
+def downsample(image, factor=1):
     '''Wrapper for downsampling an image by a specified factor using
     skimage.transform.
     '''
     return resize(image, (
-        math.floor(image.shape[0] / downsample_factor),
-        math.floor(image.shape[1] / downsample_factor),
+        math.floor(image.shape[0] / factor),
+        math.floor(image.shape[1] / factor),
     ))

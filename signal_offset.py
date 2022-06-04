@@ -7,27 +7,29 @@ from correlation import cross_correlate_1d
 from correlation_spectral import cross_correlate_1d_spectral
 from matplotlib import pyplot as plt
 from datetime import datetime
-import argparse
+from argparse import ArgumentParser
 
 SIGNAL_FREQ = 44_000
 SIGNAL_SPEED = 333
 
+data_dir = '1d-data'
+
 def main():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument('--spectral', action='store_true', default=False)
     args = parser.parse_args()
 
     # Read data into Pandas dataframes, leveraging the fact that
     # the data is contained within a single column
-    with open('data/sensor1Data.txt') as f:
+    with open(f'{data_dir}/sensor1Data.txt') as f:
         df_signal_1 = pd.read_csv(f).squeeze()
-    with open('data/sensor2Data.txt') as f:
+    with open(f'{data_dir}/sensor2Data.txt') as f:
         df_signal_2 = pd.read_csv(f).squeeze()
 
     signal_1 = df_signal_1.to_numpy()
     signal_2 = df_signal_2.to_numpy()
 
-    _, axis = plt.subplots(1)
+    _, axis = plt.subplots(3)
 
     start = datetime.now()
     if args.spectral:
@@ -46,8 +48,12 @@ def main():
     print(f'Signal shift time: {shift_time}')
     print(f'Signal shift distance: {shift_distance}')
 
-    axis.plot(correlation)
-    axis.set_title('signal correlation')
+    axis[0].plot(signal_1)
+    axis[0].set_title('Signal 1')
+    axis[1].plot(signal_2)
+    axis[1].set_title('Signal 2')
+    axis[2].plot(correlation)
+    axis[2].set_title('Cross-correlation')
     plt.show()
 
 if __name__ == '__main__':
