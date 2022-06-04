@@ -1,3 +1,5 @@
 .venv
 __pycache__
-data
+calibration-data/*
+depth-data/*
+1d-data/*
