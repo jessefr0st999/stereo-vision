@@ -85,11 +85,11 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
         figure.add_subplot(1, 2, 1)
         plt.imshow(left_image)
         plt.autoscale(False)
-        # plt.plot(left_x_peaks, left_y_peaks, 'ro')
+        plt.plot(left_x_peaks, left_y_peaks, 'ro')
         figure.add_subplot(1, 2, 2)
         plt.imshow(right_image)
         plt.autoscale(False)
-        # plt.plot(right_x_peaks, right_y_peaks, 'ro')
+        plt.plot(right_x_peaks, right_y_peaks, 'ro')
         plt.show()
 
     return (np.array(peaks_xyxy), np.array(peak_polynomials), peaks_x_out,

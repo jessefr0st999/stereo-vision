@@ -5,9 +5,11 @@ import json
 from PIL import Image
 from argparse import ArgumentParser
 from datetime import datetime
-from sv_image_comparison import sequence_scan
-from sv_scan_plots import plot_depth_grid, plot_multi_pass_output
+from sv_image_comparison import sequence_scan, plot_multi_pass_output
 from utils import downsample
+from matplotlib import pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D # Required for 3D plot
 
 image_dir = 'images-p2-uncal'
 data_dir = 'depth-data'
@@ -113,7 +115,23 @@ def main():
         print(f'Data read from file {args.depth_input}')
 
     if not args.hide_depth:
-        plot_depth_grid(total_depth_grid, total_contributions_grid)
+        figure = plt.figure()
+        ax = figure.add_subplot(1, 1, 1, projection='3d')
+        x_grid, y_grid = np.meshgrid(range(total_depth_grid.shape[1]),
+            range(total_depth_grid.shape[0]))
+        # Flip the y scale to align with the 2D colour plots
+        ax.set_ylim(total_depth_grid.shape[0], 0)
+        ax.plot_surface(x_grid, y_grid, total_depth_grid, cmap=cm.coolwarm)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+
+        figure = plt.figure()
+        ax = figure.add_subplot(1, 2, 1)
+        ax.imshow(total_depth_grid)
+
+        ax = figure.add_subplot(1, 2, 2)
+        ax.imshow(total_contributions_grid)
+        plt.show()
 
 def calc_max_shift_magnitude(config):
     if config['scheme_shift_size'][0]:

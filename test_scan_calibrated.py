@@ -10,8 +10,6 @@ from matplotlib import cm
 from sv_calibration import model_func_generator
 from scipy.interpolate import griddata as scipy_griddata
 
-# TODO: handle inverse depth
-
 image_dir = 'images-p2-uncal'
 depth_data_dir = 'depth-data'
 cal_data_dir = 'calibration-data'
@@ -43,7 +41,6 @@ def main():
     grid_shape = dp_x_grid.shape
     flattened_shape = grid_shape[0] * grid_shape[1]
 
-
     if args.calib_type == 'griddata':
         x_linspace = range(grid_shape[1])
         y_linspace = range(grid_shape[0])
@@ -57,8 +54,6 @@ def main():
         for i, (x, y, dp_x, dp_y )in enumerate(zip(x_vec, y_vec, dp_x_vec, dp_y_vec)):
             xyxy = (x, y, x + dp_x, y + dp_y)
             xyxy_values.append(xyxy)
-            # if i > 1683871 and i < 1683881:
-            #     xyxy_values.append(xyxy)
 
         z_vec = scipy_griddata(
             points=np.array(cal_data['train_points']),
@@ -67,8 +62,6 @@ def main():
             fill_value=0,
             # method='nearest',
         )
-        # for xyxy, z in zip(xyxy_values, z_vec):
-        #     print(xyxy, z)
         z_grid = np.reshape(z_vec, grid_shape)
 
     elif args.calib_type == 'model':
@@ -88,6 +81,7 @@ def main():
     figure = plt.figure(1)
     figure.suptitle('z')
     ax = figure.add_subplot(1, 1, 1, projection='3d')
+    ax.set_ylim(y_linspace[-1], y_linspace[0])
     ax.plot_surface(x_grid, y_grid, z_grid, cmap=cm.coolwarm)
     ax.set_xlabel('x')
     ax.set_ylabel('y')

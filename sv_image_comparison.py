@@ -2,7 +2,7 @@
 '''
 from correlation_spectral import cross_correlate_2d_spectral as x_corr_2d
 from matplotlib import pyplot as plt
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from utils import max_pos
 import numpy as np
 
@@ -69,7 +69,7 @@ def sequence_scan(left_image, right_image, scan_config):
                 x_window, y_window = window_info['stage_sizes'][stage - 1]
                 # Break up the window (left image) based on the factor
                 window_partitions = {}
-                for _x, _y in sub_region_pairs(x_centre, x_window, y_centre, y_window,
+                for _x, _y in region_partition_pairs(x_centre, x_window, y_centre, y_window,
                         stage_config['factor']):
                     window_boundaries = get_window_boundaries(_x, _y, x_window,
                         y_window, image_width, image_height)
@@ -87,7 +87,7 @@ def sequence_scan(left_image, right_image, scan_config):
                 for window_id, wp in window_partitions.items():
                     partitioned_window_info = {**wp, 'target_regions': window_info['target_regions']}
                     max_pos, corr_max = image_scan(partitioned_window_info, window_id,
-                        stage_config['correlation_threshold'])
+                        corr_threshold=0)
                     if corr_max > window_corr_max:
                         window_corr_max = corr_max
                         window_info['centre'] = wp['centre']
@@ -161,7 +161,7 @@ def centred_search_region(template_window_info, centre, size, region_image, fact
     window_info = {**template_window_info, 'target_regions': []}
     x_centre, y_centre = centre
     x_window, y_window = size
-    for _x, _y in sub_region_pairs(x_centre, factor * x_window,
+    for _x, _y in region_partition_pairs(x_centre, factor * x_window,
             y_centre, factor * y_window, factor):
         window_boundaries = get_window_boundaries(_x, _y, x_window,
             y_window, image_width, image_height)
@@ -228,7 +228,7 @@ def image_scan(window_info, window_id, corr_threshold=0):
         print(window_summary)
     return window_corr_max_pos, window_corr_max
 
-def sub_region_pairs(x_centre, x_window, y_centre, y_window, factor):
+def region_partition_pairs(x_centre, x_window, y_centre, y_window, factor):
     '''Gets the midpoints of
     '''
     x_vec = np.linspace(x_centre - x_window / 2, x_centre + x_window / 2, 2 * factor + 1)[1 :: 2]
@@ -275,3 +275,83 @@ def get_window_boundaries(x, y, x_window, y_window, image_width, image_height):
     y_start = int(max(y - y_window / 2, 0))
     y_end = int(min(y + y_window / 2, image_height))
     return x_start, x_end, y_start, y_end
+
+grid_rect_kwargs = {
+    'linewidth': 1,
+    'edgecolor': 'blue',
+    'facecolor': 'none',
+}
+multi_pass_template_kwargs = {
+    'linewidth': 1,
+    'edgecolor': 'cyan',
+    'facecolor': 'none',
+}
+multi_pass_target_kwargs = {
+    'linewidth': 1,
+    'edgecolor': 'green',
+    'facecolor': 'none',
+}
+shift_rect_kwargs = {
+    'linewidth': 1,
+    'edgecolor': 'none',
+}
+arrow_kwargs = {
+    'head_width': 5,
+    'head_length': 5,
+    'edgecolor': 'red',
+    'facecolor': 'red',
+}
+
+def plot_multi_pass_output(left_image, right_image, stage_results,
+        max_shift_magnitude, shift_plot_type):
+    '''Plots the output...
+    '''
+    figure = plt.figure(figsize=(1, 2))
+    left_plot = figure.add_subplot(1, 2, 1)
+    left_plot.imshow(left_image)
+    right_plot = figure.add_subplot(1, 2, 2)
+    right_plot.imshow(right_image)
+    for stage, windows in enumerate(stage_results):
+        for window_id, window_info in windows.items():
+            # Plot the initial (first stage) grid on each image
+            if stage == 0:
+                x, y = window_info['centre']
+                top_left = (x - int(window_info['size'][0] / 2),
+                    y - int(window_info['size'][1] / 2))
+                window_rect = lambda: Rectangle(top_left, *window_info['size'],
+                    **grid_rect_kwargs)
+                left_plot.add_patch(window_rect())
+                right_plot.add_patch(window_rect())
+            else:
+                # For subsequent stages, plot the regions over which the templates
+                # are searched on both images
+                for region_info in window_info['target_regions']:
+                    r_x, r_y = region_info['centre']
+                    r_top_left = (r_x - int(region_info['size'][0] / 2),
+                        r_y - int(region_info['size'][1] / 2))
+                    region_rect = lambda: Rectangle(r_top_left, *region_info['size'],
+                        **multi_pass_target_kwargs)
+                    left_plot.add_patch(region_rect())
+                    right_plot.add_patch(region_rect())
+                # Also plot the templates on left image
+                x, y = window_info['stage_centres'][stage]
+                top_left = (x - int(window_info['stage_sizes'][stage][0] / 2),
+                    y - int(window_info['stage_sizes'][stage][1] / 2))
+                window_rect = lambda: Rectangle(top_left, *window_info['stage_sizes'][stage],
+                    **multi_pass_template_kwargs)
+                left_plot.add_patch(window_rect())
+            # Also plot arrows showing non-zero pixel displacement on the left image
+            if stage == len(stage_results) - 1 and (window_info['dp_x'] or window_info['dp_y']):
+                if shift_plot_type == 'arrows':
+                    left_plot.arrow(x, y, window_info['dp_x'],
+                        window_info['dp_y'], **arrow_kwargs)
+                elif shift_plot_type == 'boxes':
+                    top_left = (x - int(window_info['stage_sizes'][stage][0] / 2),
+                        y - int(window_info['stage_sizes'][stage][1] / 2))
+                    shift_magnitude = np.sqrt(window_info['dp_x'] ** 2 + window_info['dp_y'] ** 2)
+                    shift_rect_colour = (1, 0, 0) if stage == 0 else (0, 1, 1)
+                    shift_rect = lambda: Rectangle(top_left, *window_info['stage_sizes'][stage],
+                        facecolor=(*shift_rect_colour, min(shift_magnitude / max_shift_magnitude, 1)),
+                        **shift_rect_kwargs)
+                    left_plot.add_patch(shift_rect())
+    plt.show()
