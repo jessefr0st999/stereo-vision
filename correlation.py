@@ -75,8 +75,8 @@ def cross_correlate_1d(vec_1: np.ndarray, vec_2: np.ndarray, normalised=False):
     return correlated
 
 def cross_correlate_2d(template: np.ndarray, region: np.ndarray, step_x=1, step_y=1):
-    '''Computes the cross-correlation between a 2D region
-    and template. Numpy is used for representation of inputs and required calculations.
+    '''Computes the cross-correlation between a 2D region and template. Numpy is used
+    for representation of inputs and required calculations.
     '''
     if template.shape[0] > region.shape[0] or template.shape[1] > region.shape[1]:
         raise Exception('Dimensions of template must not exceed those of region.')

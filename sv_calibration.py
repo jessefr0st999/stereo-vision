@@ -10,10 +10,11 @@ from scipy import ndimage
 image_dir = 'images-p2-cal'
 data_dir = 'calibration-data'
 
-PLOT_OUTPUT = 1
+PLOT_PEAK_DETECTION = False
 
 def build_features(z, z_average, grid_height, grid_length, grid_spacing):
-    '''
+    '''Searches for peaks in a given pair of calibration images, then uses
+    these peak locations to build a list of features for to be used for calibration.
     '''
     peaks_x_out = np.array([])
     peaks_y_out = np.array([])
@@ -21,14 +22,9 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
     peaks_xyxy = []
     peak_polynomials = []
     # Read in the left image and find the locations of its dots
-    if z == -1:
-        image_dir = 'images-p2-uncal'
-        left_image_file = 'left_test_1_dots.tiff'
-        right_image_file = 'right_test_1_dots.tiff'
-    else:
-        image_dir = 'images-p2-cal'
-        left_image_file = f'cal_image_left_{str(z)}.tiff'
-        right_image_file = f'cal_image_right_{str(z)}.tiff'
+    image_dir = 'images-p2-cal'
+    left_image_file = f'cal_image_left_{str(z)}.tiff'
+    right_image_file = f'cal_image_right_{str(z)}.tiff'
 
     left_image = Image.open(f'{image_dir}/{left_image_file}').convert('L')
     left_image = np.asarray(left_image)
@@ -51,7 +47,7 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
         right_y_peaks[grid_length * i : grid_length * (i + 1)] = np.flip(
             right_y_peaks[grid_length * i : grid_length * (i + 1)])
 
-    # Build the matrix of design variables
+    # Build the matrix of features
     # Add squares and combination terms for linear regression
     for lin_terms in zip(left_x_peaks, left_y_peaks, right_x_peaks, right_y_peaks):
         terms = list(lin_terms)
@@ -80,7 +76,7 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
             peaks_y_out = np.append(peaks_y_out, y)
             peaks_z_out = np.append(peaks_z_out, z - z_average)
 
-    if PLOT_OUTPUT:
+    if PLOT_PEAK_DETECTION:
         figure = plt.figure(figsize=(1, 2))
         figure.add_subplot(1, 2, 1)
         plt.imshow(left_image)
@@ -92,12 +88,12 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
         plt.plot(right_x_peaks, right_y_peaks, 'ro')
         plt.show()
 
-    return (np.array(peaks_xyxy), np.array(peak_polynomials), peaks_x_out,
-        peaks_y_out, peaks_z_out)
+    return np.array(peaks_xyxy), np.array(peak_polynomials), peaks_x_out, \
+        peaks_y_out, peaks_z_out
 
 def find_peaks(region, neighborhood_size, threshold):
-    '''First, construct a Gaussian for detecting the exact positions of dots in the image.
-    Next, use a 2D peak detection algorithm to get the exact locations of the maxima.
+    '''First, constructs a Gaussian for detecting the exact positions of dots in the image.
+    Next, uses a 2D peak detection algorithm to get the exact locations of the maxima.
     Obtained from here:
     https://stackoverflow.com/questions/9111711/get-coordinates-of-local-maxima-in-2d-array-above-certain-value
     '''

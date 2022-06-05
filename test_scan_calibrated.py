@@ -13,14 +13,13 @@ from scipy.interpolate import griddata as scipy_griddata
 image_dir = 'images-p2-uncal'
 depth_data_dir = 'depth-data'
 cal_data_dir = 'calibration-data'
-PLOT_DP = 0
 
 def main():
     parser = ArgumentParser()
     parser.add_argument('--model_input', default='model.json')
-    parser.add_argument('--cal_data_input', default='test_1_depth_data.json')
+    parser.add_argument('--cal_data_input', default='full_train_data.json')
     parser.add_argument('--depth_input', default='test_1_depth_map.json')
-    parser.add_argument('--calib_type', default='model')
+    parser.add_argument('--calib_type', default='griddata')
     parser.add_argument('--images', default='test_1_dots')
     args = parser.parse_args()
 
@@ -41,35 +40,33 @@ def main():
     grid_shape = dp_x_grid.shape
     flattened_shape = grid_shape[0] * grid_shape[1]
 
+    # Rescale the grids to those used for the model calibration:
+    # 0 < x < 2400
+    # 0 < y < 1800
+    x_linspace = np.linspace(0, 2400, grid_shape[1])
+    y_linspace = np.linspace(0, 1800, grid_shape[0])
     if args.calib_type == 'griddata':
-        x_linspace = range(grid_shape[1])
-        y_linspace = range(grid_shape[0])
         x_grid, y_grid = np.meshgrid(x_linspace, y_linspace)
 
         x_vec = np.reshape(x_grid, flattened_shape)
         y_vec = np.reshape(y_grid, flattened_shape)
         dp_x_vec = np.reshape(dp_x_grid, flattened_shape)
         dp_y_vec = np.reshape(dp_y_grid, flattened_shape)
-        xyxy_values = []
-        for i, (x, y, dp_x, dp_y )in enumerate(zip(x_vec, y_vec, dp_x_vec, dp_y_vec)):
-            xyxy = (x, y, x + dp_x, y + dp_y)
-            xyxy_values.append(xyxy)
+
+        def xyxy_func(x, y, dp_x, dp_y):
+            return (x, y, x + dp_x, y + dp_y)
+        vec_xyxy_func = np.vectorize(xyxy_func)
+        xyxy_values = vec_xyxy_func(x_vec, y_vec, dp_x_vec, dp_y_vec)
 
         z_vec = scipy_griddata(
-            points=np.array(cal_data['train_points']),
-            values=np.array(cal_data['z_values']),
+            points=np.array(cal_data['train_features']),
+            values=np.array(cal_data['z_labels']),
             xi=xyxy_values,
             fill_value=0,
-            # method='nearest',
         )
         z_grid = np.reshape(z_vec, grid_shape)
 
     elif args.calib_type == 'model':
-        # Rescale the grids to those used for the model calibration:
-        # -500 < x < 500
-        # -400 < y < 400
-        x_linspace = np.linspace(-500, 500, grid_shape[1])
-        y_linspace = np.linspace(-400, 400, grid_shape[0])
         x_grid, y_grid = np.meshgrid(x_linspace, y_linspace)
         z_grid = vec_model_func(x_grid, y_grid, x_grid + dp_x_grid,
             y_grid + dp_y_grid)
@@ -91,22 +88,6 @@ def main():
     plt.imshow(left_image)
     figure.add_subplot(1, 2, 2)
     plt.imshow(z_grid)
-
-    if PLOT_DP:
-        figure = plt.figure(3)
-        figure.suptitle('dp_x')
-        ax = figure.add_subplot(1, 1, 1, projection='3d')
-        ax.plot_surface(x_grid, y_grid, dp_x_grid, cmap=cm.coolwarm)
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-
-        figure = plt.figure(4)
-        figure.suptitle('dp_y')
-        ax = figure.add_subplot(1, 1, 1, projection='3d')
-        ax.plot_surface(x_grid, y_grid, dp_y_grid, cmap=cm.coolwarm)
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-
     plt.show()
 
 if __name__ == '__main__':

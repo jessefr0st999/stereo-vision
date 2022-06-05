@@ -1,5 +1,6 @@
 '''Script for stereo vision image comparison...
 '''
+from datetime import datetime
 import numpy as np
 import json
 from PIL import Image
@@ -17,11 +18,6 @@ grid_spacing = 50 # millimetres
 image_dir = 'images-p2-cal'
 data_dir = 'calibration-data'
 config_dir = 'configs'
-
-# TODO: this script working
-# TODO: statistical analysis of error when changing test/trial sets
-# TODO: different calibration schemes
-# TODO: make input regions consistent between griddata and polynomial
 
 image_z_values = [
     1900,
@@ -43,58 +39,59 @@ def main():
     with open(f'{config_dir}/{args.config}') as f:
         config = json.load(f)
 
-    peaks_x_out = np.array([])
-    peaks_y_out = np.array([])
-    peaks_z_out = np.array([])
-    peaks = []
+    x_labels = np.array([])
+    y_labels = np.array([])
+    z_labels = np.array([])
+    z_test_labels = np.array([])
     peaks_poly = []
-    peaks_test = []
+    train_features = []
+    test_features = []
     # Firstly, build the features for the model
+    start = datetime.now()
     for i, z in enumerate(image_z_values):
         if z not in config['train_z'] and z not in config['test_z']:
             continue
         _xyxy, _polynomials, _x_out, _y_out, _z_out = build_features(z, image_z_average,
             grid_height, grid_length, grid_spacing)
+        # Include a random subset of the features for training as specified in config
         include = np.random.choice(a=[True, False], size=len(_xyxy),
             p=[1 - config['exclusion_ratio'], config['exclusion_ratio']])
-        train_peaks = _xyxy[include]
-        train_polynomials = _polynomials[include]
-        train_x_out = _x_out[include]
-        train_y_out = _y_out[include]
-        train_z_out = _z_out[include]
-        if config['test_excluded']:
-            test_peaks = _xyxy[~include]
-        else:
-            test_peaks = _xyxy
         if z in config['train_z']:
-            peaks.extend(train_peaks)
-            peaks_poly.extend(train_polynomials)
-            peaks_x_out = np.append(peaks_x_out, train_x_out)
-            peaks_y_out = np.append(peaks_y_out, train_y_out)
-            peaks_z_out = np.append(peaks_z_out, train_z_out)
+            train_features.extend(_xyxy[include].tolist())
+            peaks_poly.extend(_polynomials[include].tolist())
+            x_labels = np.append(x_labels, _x_out[include])
+            y_labels = np.append(y_labels, _y_out[include])
+            z_labels = np.append(z_labels, _z_out[include])
         if z in config['test_z']:
-            peaks_test.extend(test_peaks)
+            if config['test_excluded']:
+                test_features.extend(_xyxy[~include].tolist())
+                z_test_labels = np.append(z_test_labels, _z_out[~include])
+            else:
+                test_features.extend(_xyxy.tolist())
+                z_test_labels = np.append(z_test_labels, _z_out)
+    print(f'Time elapsed (peak detection and feature construction): {datetime.now() - start}')
 
-    # Save the features as well
+    # Save the features to file
     if args.data_file is None:
         print(f'No data file specified; skipping save to file.')
     else:
         with open(f'{data_dir}/{args.data_file}', 'w') as f:
             output_data = {
-                'train_points': peaks,
-                'test_points': peaks_test,
-                'x_values': list(peaks_x_out),
-                'y_values': list(peaks_y_out),
-                'z_values': list(peaks_z_out),
+                'train_features': train_features,
+                'test_features': test_features,
+                'x_labels': list(x_labels),
+                'y_labels': list(y_labels),
+                'z_labels': list(z_labels),
             }
-            json.dump(output_data, f)
+            json.dump(output_data, f, indent=2)
             print(f'Data saved to file {args.data_file}')
 
-    # Least squares model for parameters
+    # Next, build the least squares model for parameters
     peaks_poly = np.array(peaks_poly)
-    x_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, peaks_x_out)
-    y_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, peaks_y_out)
-    z_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, peaks_z_out)
+    x_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, x_labels)
+    y_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, y_labels)
+    z_reg = LinearRegression(fit_intercept=False).fit(peaks_poly, z_labels)
+
     # Add constant terms back on to model
     model = {
         'x': [0, *list(x_reg.coef_)],
@@ -110,59 +107,56 @@ def main():
             json.dump(model, f, indent=2)
             print(f'Model saved to file {args.model_file}')
 
-    with open(f'{data_dir}/{args.model_input_file}') as f:
-        model = json.load(f)
-    def model_func(x_l, y_l, x_r, y_r):
-        return (
-            model_func_generator(model['x'])(x_l, y_l, x_r, y_r),
-            model_func_generator(model['y'])(x_l, y_l, x_r, y_r),
-            model_func_generator(model['z'])(x_l, y_l, x_r, y_r),
-        )
-    vec_model_func = np.vectorize(model_func)
+    def print_error_metrics(outputs, labels, model_name):
+        _max = max(outputs - labels)
+        _min = min(outputs - labels)
+        _mean = np.mean(outputs - labels)
+        _std = np.std(outputs - labels)
+        print(f'\nError summary for {model_name}:')
+        print(f'Mean: {_mean}')
+        print(f'Standard deviation: {_std}')
+        print(f'Range: [{_min}, {_max}]')
 
-    with open(f'{data_dir}/{args.data_file}') as f:
-        data = json.load(f)
-    test_points = data['test_points']
-    train_points = data['train_points']
-    z_values = data['z_values']
+    # Run the testing procedure for griddata interpolation
+    griddata_kwargs = {
+        'points': np.array(train_features),
+        'xi': test_features,
+        'fill_value': 0,
+    }
+    z_list_linear = scipy_griddata(values=np.array(z_labels),
+        method='linear', **griddata_kwargs)
+    print_error_metrics(z_list_linear, z_test_labels, 'scipy griddata (linear)')
 
-    # Pack the z-values into a grid
-    z_list = scipy_griddata(
-        points=np.array(train_points),
-        values=np.array(z_values),
-        xi=test_points,
-        fill_value=0,
-    )
+    z_list_nearest = scipy_griddata(values=np.array(z_labels),
+        method='nearest', **griddata_kwargs)
+    print_error_metrics(z_list_nearest, z_test_labels, 'scipy griddata (nearest)')
 
-    z_list = []
-    for i, xyxy in enumerate(test_points):
-        x_l, y_l, x_r, y_r = xyxy
-        x, y, z = model_func(x_l, y_l, x_r, y_r)
-        z_list.append(z)
-    x_linspace = np.linspace(-500, 500, grid_shape[1])
-    y_linspace = np.linspace(-400, 400, grid_shape[0])
-    x_grid, y_grid = np.meshgrid(x_linspace, y_linspace)
-    z_grid = vec_model_func(x_grid, y_grid, x_grid + dp_x_grid,
-        y_grid + dp_y_grid)
+    # Run the testing procedure for the polynomial model
+    def model_test_func(xyxy):
+        [x_l, y_l, x_r, y_r] = xyxy
+        return model_func_generator(model['z'])(x_l, y_l, x_r, y_r) - image_z_average
+    z_list_model = [model_test_func(xyxy) for xyxy in test_features]
+    print_error_metrics(z_list_model, z_test_labels, 'polynomial model')
 
-    print(f'Mean value: {np.mean(z_list)}')
-    print(f'Median value: {np.median(z_list)}')
+    if len(config['test_z']) > 1:
+        print('More than one test z-value specified in config; skipping plotting.')
+        return
 
-    z_grid_model = []
-    prev_y_l = None
-    for i, xyxy in enumerate(test_points):
-        x_l, y_l, x_r, y_r = xyxy
-        z = z_list[i]
-        if prev_y_l is None or np.abs(y_l - prev_y_l) > 10:
-            z_grid.append([])
-        z_grid[len(z_grid) - 1].append(z)
-        prev_y_l = y_l
+    # Pack the outputs into a grid and plot
+    grid_shape = (grid_length, grid_height)
+    z_grid_linear = np.reshape(z_list_linear, grid_shape)
+    z_grid_nearest = np.reshape(z_list_nearest, grid_shape)
+    z_grid_model = np.reshape(z_list_model, grid_shape)
 
-    figure = plt.figure()
-    figure.add_subplot(1, 2, 1)
-    plt.imshow(z_grid_interp)
-    figure.add_subplot(1, 2, 2)
-    plt.imshow(z_grid_model)
+    z_label = config['test_z'][0] - image_z_average
+
+    figure, axes = plt.subplots(1, 3)
+    axes[0].set_title(f'Scipy griddata; linear interpolation (target: {z_label})')
+    axes[0].imshow(z_grid_linear)
+    axes[1].set_title(f'Scipy griddata; nearest-neighbour interpolation (target: {z_label})')
+    axes[1].imshow(z_grid_nearest)
+    axes[2].set_title(f'Polynomial model interpolation (target: {z_label})')
+    axes[2].imshow(z_grid_model)
     plt.show()
 
 if __name__ == '__main__':

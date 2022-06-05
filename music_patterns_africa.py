@@ -9,8 +9,7 @@ from datetime import datetime
 def main():
     _, signal = wavfile.read('audio/africa.wav')
     _, verse_template = wavfile.read('audio/africa_first_verse.wav')
-    # _, bass_template = wavfile.read('audio/africa_drum_1.wav')
-    _, snare_template = wavfile.read('audio/africa_drum_2.wav')
+    _, snare_template = wavfile.read('audio/africa_drum_snare.wav')
     _, hurry_template = wavfile.read('audio/africa_hurry.wav')
     _, rains_template = wavfile.read('audio/africa_rains.wav')
 

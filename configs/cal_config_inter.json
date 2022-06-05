@@ -1,0 +1,14 @@
+{
+  "train_z": [
+    1900,
+    1920,
+    1960,
+    1980,
+    2000
+  ],
+  "test_z": [
+    1940
+  ],
+  "exclusion_ratio": 0,
+  "test_excluded": false
+}

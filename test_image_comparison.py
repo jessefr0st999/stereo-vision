@@ -5,7 +5,7 @@ import json
 from PIL import Image
 from argparse import ArgumentParser
 from datetime import datetime
-from sv_image_comparison import sequence_scan, plot_multi_pass_output
+from sv_image_comparison import sequence_scan, plot_sequence_output
 from utils import downsample
 from matplotlib import pyplot as plt
 from matplotlib import cm
@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--depth_output', default=None)
     parser.add_argument('--depth_input', default=None)
     parser.add_argument('--shift_plot_type', default='boxes')
-    parser.add_argument('--show_comparison', action='store_true', default=False)
+    parser.add_argument('--show_sequence_plots', action='store_true', default=False)
     parser.add_argument('--hide_depth', action='store_true', default=False)
     args = parser.parse_args()
 
@@ -54,8 +54,8 @@ def main():
             start = datetime.now()
             seq_results = sequence_scan(left_image, right_image, seq_config)
             print(f'Time elapsed for sequence {i + 1} scan: {datetime.now() - start}')
-            if args.show_comparison:
-                plot_multi_pass_output(left_image, right_image, seq_results,
+            if args.show_sequence_plots:
+                plot_sequence_output(left_image, right_image, seq_results,
                     max_shift_magnitude=calc_max_shift_magnitude(seq_config[0]),
                     shift_plot_type=args.shift_plot_type)
             seq_depth_grid = np.zeros(left_image.shape)
