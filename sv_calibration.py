@@ -38,18 +38,39 @@ def build_features(z, z_average, grid_height, grid_length, grid_spacing):
     right_x_peaks, right_y_peaks = find_peaks(right_image, neighborhood_size=10, threshold=0.2)
     print(f'Peaks found for {right_image_file}')
 
-    # Lists above ordered row by row, top-to-bottom
-    # Left lists are left-to-right, right lists are right-to-left
-    # Hence flip the rows in the right lists
+    # Peaks are found in order of ascending y-values
+    # For the left image, this is left-to-right for the top half of the image,
+    # and right-to left for the bottom half
+    # For the right image, vice-versa
+    # Towards the middle, results are erratic, due to similar y values between neighbouring peaks
+    # Hence, loop through the rows and sort by x values
+    # This process is awkward but necessary since the peak detection algorithm is agnostic
+    # of the grid locations
     for i in range(grid_height):
-        right_x_peaks[grid_length * i : grid_length * (i + 1)] = np.flip(
-            right_x_peaks[grid_length * i : grid_length * (i + 1)])
-        right_y_peaks[grid_length * i : grid_length * (i + 1)] = np.flip(
-            right_y_peaks[grid_length * i : grid_length * (i + 1)])
+        left_row_x_order = np.argsort(left_x_peaks[grid_length * i : grid_length * (i + 1)])
+        right_row_x_order = np.argsort(right_x_peaks[grid_length * i : grid_length * (i + 1)])
+        left_x_peaks[grid_length * i : grid_length * (i + 1)] = left_x_peaks[
+            grid_length * i + left_row_x_order]
+        left_y_peaks[grid_length * i : grid_length * (i + 1)] = left_y_peaks[
+            grid_length * i + left_row_x_order]
+        right_x_peaks[grid_length * i : grid_length * (i + 1)] = right_x_peaks[
+            grid_length * i + right_row_x_order]
+        right_y_peaks[grid_length * i : grid_length * (i + 1)] = right_y_peaks[
+            grid_length * i + right_row_x_order]
+
+    # Scale the features to a [-1, 1] by [-1, 1] grid
+    left_x_peaks -= 1200
+    left_x_peaks /= 1200
+    right_x_peaks -= 1200
+    right_x_peaks /= 1200
+    left_y_peaks -= 800
+    left_y_peaks /= 800
+    right_y_peaks -= 800
+    right_y_peaks /= 800
 
     # Build the matrix of features
     # Add squares and combination terms for linear regression
-    for lin_terms in zip(left_x_peaks, left_y_peaks, right_x_peaks, right_y_peaks):
+    for i, lin_terms in enumerate(zip(left_x_peaks, left_y_peaks, right_x_peaks, right_y_peaks)):
         terms = list(lin_terms)
         combination_terms = [
             lin_terms[0] * lin_terms[1],

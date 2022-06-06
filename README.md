@@ -170,7 +170,7 @@ Used for section 2.5; combines results obtained from `test_image_comparison.py` 
 
 Supports the following command line flags:
 - `--images` for specifying the appropriately named (prefixed with `left_` and `right_`) image pair to compare (within the `images-p2-uncal` folder).
-- `--ds_factor` for specifying the factor by which to downsmaple the images for quicker testing. Defaults to 1.
+- `--cal_type` for specifying the calibration type; either "polynomial", "linear" or "nearest".
 - `--model_input` for the model data file (within the `calibration-data` folder).
 - `--cal_data_input` for the calibration data file (within the `calibration-data` folder).
 - `--depth_input` for the depth data file (within the `depth-data` folder).

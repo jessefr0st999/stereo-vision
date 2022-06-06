@@ -110,12 +110,10 @@ def main():
     def print_error_metrics(outputs, labels, model_name):
         _max = max(outputs - labels)
         _min = min(outputs - labels)
-        _mean = np.mean(outputs - labels)
-        _std = np.std(outputs - labels)
-        print(f'\nError summary for {model_name}:')
-        print(f'Mean: {_mean}')
-        print(f'Standard deviation: {_std}')
-        print(f'Range: [{_min}, {_max}]')
+        _mean = np.mean(np.abs(outputs - labels))
+        print(f'\nStatistical summary for {model_name}:')
+        print(f'Mean absolute error: {_mean}')
+        print(f'Range of errors: [{_min}, {_max}]')
 
     # Run the testing procedure for griddata interpolation
     griddata_kwargs = {

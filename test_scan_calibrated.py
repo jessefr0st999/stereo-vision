@@ -18,9 +18,9 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('--model_input', default='model.json')
     parser.add_argument('--cal_data_input', default='full_train_data.json')
-    parser.add_argument('--depth_input', default='test_1_depth_map.json')
-    parser.add_argument('--calib_type', default='griddata')
-    parser.add_argument('--images', default='test_1_dots')
+    parser.add_argument('--depth_input', default='test_2_depth_map.json')
+    parser.add_argument('--cal_type', default='linear')
+    parser.add_argument('--images', default='test_2_noise')
     args = parser.parse_args()
 
     # Read in the model and define the corresponding function
@@ -40,14 +40,16 @@ def main():
     grid_shape = dp_x_grid.shape
     flattened_shape = grid_shape[0] * grid_shape[1]
 
-    # Rescale the grids to those used for the model calibration:
-    # 0 < x < 2400
-    # 0 < y < 1800
-    x_linspace = np.linspace(0, 2400, grid_shape[1])
-    y_linspace = np.linspace(0, 1800, grid_shape[0])
-    if args.calib_type == 'griddata':
+    # Rescale the inputs to those used for the model calibration:
+    # -1 < x < 1
+    # -1 < y < 1
+    x_linspace = np.linspace(-1, 1, grid_shape[1])
+    y_linspace = np.linspace(-1, 1, grid_shape[0])
+    dp_x_grid *= (2 / grid_shape[1])
+    dp_y_grid *= (2 / grid_shape[0])
+    if args.cal_type == 'linear' or args.cal_type == 'nearest':
+        print(f'Interpolation of type "{args.cal_type}" in progress...')
         x_grid, y_grid = np.meshgrid(x_linspace, y_linspace)
-
         x_vec = np.reshape(x_grid, flattened_shape)
         y_vec = np.reshape(y_grid, flattened_shape)
         dp_x_vec = np.reshape(dp_x_grid, flattened_shape)
@@ -63,13 +65,18 @@ def main():
             values=np.array(cal_data['z_labels']),
             xi=xyxy_values,
             fill_value=0,
-        )
+            method=args.cal_type,
+        ) + 1950 # Add on the constant z-value, not in the train data
         z_grid = np.reshape(z_vec, grid_shape)
 
-    elif args.calib_type == 'model':
+    elif args.cal_type == 'polynomial':
+        print('Fitting to polynomial model in progress...')
         x_grid, y_grid = np.meshgrid(x_linspace, y_linspace)
         z_grid = vec_model_func(x_grid, y_grid, x_grid + dp_x_grid,
             y_grid + dp_y_grid)
+
+    else:
+        raise Exception(f'Unknown calibration type "{args.cal_type}"')
 
     left_image_file = f'left_{args.images}.tiff'
     left_image = Image.open(f'{image_dir}/{left_image_file}').convert('L')
