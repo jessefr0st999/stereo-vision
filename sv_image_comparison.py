@@ -19,15 +19,19 @@ PLOT_XCORR = False
 LOG_WINDOW_SUMMARY = 'nonzero'
 
 def sequence_scan(left_image, right_image, scan_config):
-    '''
+    '''Compares left and right images using window searching and cross-correlation
+    for a given sequence of stages.
     '''
     seq_results = []
     image_width = left_image.shape[1]
     image_height = left_image.shape[0]
     print(f'Image width: {image_width}, height: {image_height}')
     for stage, stage_config in enumerate(scan_config):
+        # Firstly, discretise the left image and obtain the corresponding search regions
+        # in the right image for each window
         windows = {}
         if stage == 0:
+            # For the first stage, partition the entire left image as specified in the config
             windows = whole_image_search_regions(
                 template_image=left_image,
                 region_image=right_image,
@@ -42,33 +46,43 @@ def sequence_scan(left_image, right_image, scan_config):
                 window_info['stage_centres'] = [window_info['centre']]
                 window_info['stage_sizes'] = [window_info['size']]
         else:
-            # Partition both the left and right images based on the factor
+            # For later stages, partition both the left and right images based
+            # on the factor
             for window_id, window_info in seq_results[stage - 1].items():
-                if window_info['dp_x'] == 0 and window_info['dp_y'] == 0:
+                # Skip if the previous stage did not culminate in a resulting displacement
+                if (window_info['dp_x'] == 0 and window_info['dp_y'] == 0) or \
+                        len(window_info['stage_sizes']) < stage:
                     continue
-                updated_window_centre = (
-                    window_info['stage_centres'][stage - 1][0] + window_info['dp_x'],
-                    window_info['stage_centres'][stage - 1][1] + window_info['dp_y'],
-                )
                 updated_window_size = (
                     int(window_info['stage_sizes'][stage - 1][0] / stage_config['factor']),
                     int(window_info['stage_sizes'][stage - 1][1] / stage_config['factor']),
                 )
-                window_info['stage_centres'].append(updated_window_centre)
                 window_info['stage_sizes'].append(updated_window_size)
-                windows[window_id] = centred_search_region(
+                # First, get the target regions
+                windows[window_id] = multi_pass_search_regions(
                     template_window_info=window_info,
-                    centre=window_info['stage_centres'][stage],
+                    # Centre the region partitions at the "winning" target region in the
+                    # previous stage
+                    x_centre=window_info['stage_centres'][stage - 1][0] + window_info['dp_x'],
+                    y_centre=window_info['stage_centres'][stage - 1][1] + window_info['dp_y'],
                     size=window_info['stage_sizes'][stage],
                     region_image=right_image,
                     factor=stage_config['factor'],
                 )
+        # Next, perform the actual correlations for each window, and calculate the
+        # displacements accordingly
         for window_id, window_info in windows.items():
-            if stage > 0:
+            if stage == 0:
+                max_pos, _ = image_scan(window_info, window_id,
+                    stage_config['correlation_threshold'])
+                window_info['dp_x'] = max_pos[0] - window_info['centre'][0]
+                window_info['dp_y'] = max_pos[1] - window_info['centre'][1]
+            else:
+                # Now break up the window (left image) based on the factor
+                # Centre the window partitions at the previous window centre
                 x_centre, y_centre = window_info['stage_centres'][stage - 1]
                 x_window, y_window = window_info['stage_sizes'][stage - 1]
-                # Break up the window (left image) based on the factor
-                window_partitions = {}
+                window_partitions = []
                 for _x, _y in region_partition_pairs(x_centre, x_window, y_centre, y_window,
                         stage_config['factor']):
                     window_boundaries = get_window_boundaries(_x, _y, x_window,
@@ -76,31 +90,55 @@ def sequence_scan(left_image, right_image, scan_config):
                     if window_boundaries is None:
                         continue
                     x_start, x_end, y_start, y_end = window_boundaries
-                    window_partitions[window_id] = {
+                    window_partitions.append({
                         'centre': (_x, _y),
                         'size': (x_end - x_start, y_end - y_start),
                         'image_slice': left_image[y_start : y_end, x_start : x_end],
-                    }
+                    })
                 # Find the biggest correlation for each partition of the window in the template image
                 # For the overall biggest correlation, update the window and (dp_x, dp_y) appropriately
+                # Note that this may not occur for this stage, in which case dp_x, dp_y and centre will
+                # not update, and stage_centres will not increase in length
                 window_corr_max = 0
-                for window_id, wp in window_partitions.items():
+                for wp in window_partitions:
                     partitioned_window_info = {**wp, 'target_regions': window_info['target_regions']}
                     max_pos, corr_max = image_scan(partitioned_window_info, window_id,
                         corr_threshold=0)
                     if corr_max > window_corr_max:
                         window_corr_max = corr_max
                         window_info['centre'] = wp['centre']
-                        window_info['dp_x'] = max_pos[0] - window_info['centre'][0]
-                        window_info['dp_y'] = max_pos[1] - window_info['centre'][1]
-                        window_info['stage_centres'][stage] = wp['centre']
-            else:
-                max_pos, _ = image_scan(window_info, window_id,
-                    stage_config['correlation_threshold'])
-                window_info['dp_x'] = max_pos[0] - window_info['centre'][0]
-                window_info['dp_y'] = max_pos[1] - window_info['centre'][1]
+                        window_info['dp_x'] = max_pos[0] - wp['centre'][0]
+                        window_info['dp_y'] = max_pos[1] - wp['centre'][1]
+                        if len(window_info['stage_centres']) < stage + 1:
+                            window_info['stage_centres'].append(wp['centre'])
+                        else:
+                            window_info['stage_centres'][stage] = wp['centre']
         seq_results.append(windows)
     return seq_results
+
+def region_pairs(x_centre, x_window, y_centre, y_window, scheme, shift_size):
+    '''Gets the midpoints of the regions centred at the desired points up to a
+    specified distance away (scheme time either window size or shift pixels).
+    '''
+    if scheme[0] % 2 != 1 or scheme[1] % 2 != 1:
+        raise Exception('Scheme dimensions must be odd.')
+    if shift_size[0]:
+        x_span_hw = shift_size[0] * (scheme[0] - 1) / 2
+    else:
+        x_span_hw = x_window * (scheme[0] - 1) / 2
+    if shift_size[1]:
+        y_span_hw = shift_size[1] * (scheme[1] - 1) / 2
+    else:
+        y_span_hw = y_window * (scheme[1] - 1) / 2
+    x_vec = np.linspace(x_centre - x_span_hw, x_centre + x_span_hw, scheme[0])
+    y_vec = np.linspace(y_centre - y_span_hw, y_centre + y_span_hw, scheme[1])
+    pairs = [(x_centre, y_centre)]
+    for y in y_vec:
+        for x in x_vec:
+            if x == x_centre and y == y_centre:
+                continue
+            pairs.append((x, y))
+    return pairs
 
 def whole_image_search_regions(template_image, region_image, x_window, y_window,
         scheme=(1, 3), scheme_shift_size=(0, 0), window_overlap=0):
@@ -152,14 +190,27 @@ def whole_image_search_regions(template_image, region_image, x_window, y_window,
         row += 1
     return windows
 
-def centred_search_region(template_window_info, centre, size, region_image, factor):
-    '''Gets
+def region_partition_pairs(x_centre, x_window, y_centre, y_window, factor):
+    '''Same as `region_pairs`, but for a given factor rather than scheme.
+    '''
+    x_vec = np.linspace(x_centre - x_window / 2, x_centre + x_window / 2,
+        2 * factor + 1)[1 :: 2]
+    y_vec = np.linspace(y_centre - y_window / 2, y_centre + y_window / 2,
+        2 * factor + 1)[1 :: 2]
+    pairs = []
+    for y in y_vec:
+        for x in x_vec:
+            pairs.append((x, y))
+    return pairs
 
-    Used for later stages of multi-pass
+def multi_pass_search_regions(template_window_info, x_centre, y_centre, size,
+        region_image, factor):
+    '''Performs the same operation as `whole_image_search_regions` but for later
+    stages of multi-pass sequences, centred on a given region in the right image and
+    partitioned based on a factor.
     '''
     image_height, image_width = region_image.shape
     window_info = {**template_window_info, 'target_regions': []}
-    x_centre, y_centre = centre
     x_window, y_window = size
     for _x, _y in region_partition_pairs(x_centre, factor * x_window,
             y_centre, factor * y_window, factor):
@@ -176,7 +227,9 @@ def centred_search_region(template_window_info, centre, size, region_image, fact
     return window_info
 
 def image_scan(window_info, window_id, corr_threshold=0):
-    '''For a given
+    '''For a given window, cross-correlates with the corresponding search/target
+    regions, returning the centre of the target region at which a maximum is attained,
+    as well as the maximum cross-correlation value.
     '''
     template = window_info['image_slice']
     centre = window_info['centre']
@@ -189,7 +242,6 @@ def image_scan(window_info, window_id, corr_threshold=0):
             continue
         x_corr = x_corr_2d(template, region_info['image_slice'])
         corr_max = np.max(x_corr)
-
         # Update the max correlation for the window to the centre of the region if the
         # value found in this region is the highest and exceeds the specified threshold
         # Preference the target region with the same centre as the window if there is
@@ -228,41 +280,10 @@ def image_scan(window_info, window_id, corr_threshold=0):
         print(window_summary)
     return window_corr_max_pos, window_corr_max
 
-def region_partition_pairs(x_centre, x_window, y_centre, y_window, factor):
-    '''Gets the midpoints of
-    '''
-    x_vec = np.linspace(x_centre - x_window / 2, x_centre + x_window / 2, 2 * factor + 1)[1 :: 2]
-    y_vec = np.linspace(y_centre - y_window / 2, y_centre + y_window / 2, 2 * factor + 1)[1 :: 2]
-    pairs = []
-    for y in y_vec:
-        for x in x_vec:
-            pairs.append((x, y))
-    return pairs
-
-def region_pairs(x_centre, x_window, y_centre, y_window, scheme, shift_size):
-    '''Gets the midpoints of
-    '''
-    if scheme[0] % 2 != 1 or scheme[1] % 2 != 1:
-        raise Exception('Scheme dimensions must be odd.')
-    if shift_size[0]:
-        x_span_hw = shift_size[0] * (scheme[0] - 1) / 2
-    else:
-        x_span_hw = x_window * (scheme[0] - 1) / 2
-    if shift_size[1]:
-        y_span_hw = shift_size[1] * (scheme[1] - 1) / 2
-    else:
-        y_span_hw = y_window * (scheme[1] - 1) / 2
-    x_vec = np.linspace(x_centre - x_span_hw, x_centre + x_span_hw, scheme[0])
-    y_vec = np.linspace(y_centre - y_span_hw, y_centre + y_span_hw, scheme[1])
-    pairs = [(x_centre, y_centre)]
-    for y in y_vec:
-        for x in x_vec:
-            if x == x_centre and y == y_centre:
-                continue
-            pairs.append((x, y))
-    return pairs
-
 def get_window_boundaries(x, y, x_window, y_window, image_width, image_height):
+    '''Gets boundaries for a given window, validating them based on the image
+    dimensions.
+    '''
     # If fully outside image, skip
     if (x + x_window / 2 <= 0 or \
         y + y_window / 2 <= 0 or \
@@ -302,17 +323,19 @@ arrow_kwargs = {
     'facecolor': 'red',
 }
 
-def plot_multi_pass_output(left_image, right_image, stage_results,
+def plot_sequence_output(left_image, right_image, sequence_results,
         max_shift_magnitude, shift_plot_type):
-    '''Plots the output...
+    '''Plots the left and right images overlaid with results for the given sequence.
     '''
     figure = plt.figure(figsize=(1, 2))
     left_plot = figure.add_subplot(1, 2, 1)
     left_plot.imshow(left_image)
     right_plot = figure.add_subplot(1, 2, 2)
     right_plot.imshow(right_image)
-    for stage, windows in enumerate(stage_results):
+    for stage, windows in enumerate(sequence_results):
         for window_id, window_info in windows.items():
+            if len(window_info['stage_centres']) < stage + 1:
+                continue
             # Plot the initial (first stage) grid on each image
             if stage == 0:
                 x, y = window_info['centre']
@@ -341,7 +364,7 @@ def plot_multi_pass_output(left_image, right_image, stage_results,
                     **multi_pass_template_kwargs)
                 left_plot.add_patch(window_rect())
             # Also plot arrows showing non-zero pixel displacement on the left image
-            if stage == len(stage_results) - 1 and (window_info['dp_x'] or window_info['dp_y']):
+            if stage == len(sequence_results) - 1 and (window_info['dp_x'] or window_info['dp_y']):
                 if shift_plot_type == 'arrows':
                     left_plot.arrow(x, y, window_info['dp_x'],
                         window_info['dp_y'], **arrow_kwargs)

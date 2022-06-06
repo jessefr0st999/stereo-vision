@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--depth_output', default=None)
     parser.add_argument('--depth_input', default=None)
     parser.add_argument('--shift_plot_type', default='boxes')
-    parser.add_argument('--show_sequence_plots', action='store_true', default=False)
+    parser.add_argument('--sequence_plots', action='store_true', default=False)
     parser.add_argument('--hide_depth', action='store_true', default=False)
     args = parser.parse_args()
 
@@ -54,7 +54,7 @@ def main():
             start = datetime.now()
             seq_results = sequence_scan(left_image, right_image, seq_config)
             print(f'Time elapsed for sequence {i + 1} scan: {datetime.now() - start}')
-            if args.show_sequence_plots:
+            if args.sequence_plots:
                 plot_sequence_output(left_image, right_image, seq_results,
                     max_shift_magnitude=calc_max_shift_magnitude(seq_config[0]),
                     shift_plot_type=args.shift_plot_type)
@@ -67,8 +67,12 @@ def main():
                     # Only the results for the last stage of a given window should contribute
                     if len(window_info['stage_centres']) - 1 > stage:
                         continue
-                    # Obtain desired quantities
-                    x, y = window_info['stage_centres'][stage]
+                    # Obtain desired quantities, using the previous stage's results if none
+                    # were available for that stage
+                    if len(window_info['stage_centres']) - 1 < stage:
+                        x, y = window_info['stage_centres'][stage - 1]
+                    else:
+                        x, y = window_info['stage_centres'][stage]
                     shift_magnitude = np.sqrt(window_info['dp_x'] ** 2 + window_info['dp_y'] ** 2)
                     # Obtain the subset of the (x, y) grid on which to set these quantities
                     x_window, y_window = window_info['stage_sizes'][stage]
