@@ -2,6 +2,25 @@
 Instruction manual for usage of the `stereo-vision` project.
 
 
+## Setup Procedure
+1. Create a virtual environment in which to install packages:
+```
+python -m venv .venv
+```
+
+2. Enter the virtual environment:
+```
+.\.venv\Scripts\activate
+```
+
+3. Install Python dependencies:
+```
+pip install -r requirements.txt
+```
+
+4. Test/develop your heart out!
+
+
 ## General Structure
 This repository follows a flat structure, with all scripts in the root directory.
 
@@ -67,7 +86,7 @@ Used for testing the 2D cross-correlation functions for section 1.3. Defaults to
 
 Supports the following command line flags:
 - `--spectral` for optionally using the spectral variety.
-- `--template` and `--region` for specifying the images to be correlated.
+- `--template` and `--region` for specifying the images to be correlated. Must be in the folder 'images-p1'.
 - `--step` for the step/stride distance if using non-spectral cross-correlation.
 
 ### numba_tests.py

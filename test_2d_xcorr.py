@@ -11,6 +11,7 @@ from utils import greyscale_with_nan, max_pos
 from datetime import datetime
 from argparse import ArgumentParser
 
+images_dir = 'images-p1'
 def main():
     parser = ArgumentParser()
     parser.add_argument('--spectral', action='store_true', default=False)
@@ -20,12 +21,12 @@ def main():
     args = parser.parse_args()
 
     # convert('L') converts image to grayscale
-    region_image = Image.open(f'images/{args.region}').convert('L')
+    region_image = Image.open(f'{images_dir}/{args.region}').convert('L')
     region = np.asarray(region_image)
 
     start = datetime.now()
     if args.spectral:
-        template_image = Image.open(f'images/{args.template}').convert('L')
+        template_image = Image.open(f'{images_dir}/{args.template}').convert('L')
         template = np.asarray(template_image)
         step = 1
         region_cor = cross_correlate_2d_spectral(template, region)
