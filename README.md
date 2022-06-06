@@ -117,7 +117,7 @@ Supports the following command line flags:
 - `--depth_output` for specifying the name of the file to which to output depth and disparity data. If none, no data is output.
 - `--depth_input` for specifying a file output by the above flag. Short circuits the sequence scan procedure; useful for quickly testing adjustments to outputs and plots.
 - `--shift_plot_type`; either "boxes" or "arrows". Arrows look better for multi-pass plots, generally boxes otherwise.
-- `--show_sequence_plots` for showing plots at the end of each sequence. These plots are hidden by default.
+- `--sequence_plots` for showing plots at the end of each sequence. These plots are hidden by default.
 - `--hide_depth` for hiding the depth plots. These plots are shown by default.
 
 Configs should be supplied to the script in the following format:
